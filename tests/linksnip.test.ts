@@ -22,6 +22,18 @@ describe('LinkSnip - Standard API Features', () => {
     }, /already in use/);
   });
 
+  it('accepts only http and https target URLs', () => {
+    assert.throws(
+      () => linkService.createLink('javascript:alert(1)'),
+      (err: any) => err.statusCode === 400 && /Only http:\/\/ and https:\/\//.test(err.message)
+    );
+    assert.throws(
+      () => linkService.createLink('file:///etc/passwd'),
+      (err: any) => err.statusCode === 400 && /Only http:\/\/ and https:\/\//.test(err.message)
+    );
+    assert.ok(linkService.createLink('http://example.com/allowed'));
+  });
+
   it('records clicks and updates click count', () => {
     const link = linkService.createLink('https://example.com/click-test');
     linkService.recordClick(link.id, 'https://twitter.com', '127.0.0.1');
