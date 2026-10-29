@@ -8,8 +8,8 @@
 ---
 
 ## Team Information
-- **Team Name**: 
-- **Members**: 
+- **Team Name**: byte.exe
+- **Members**: Dontam Nitin Kumar. Tanuj Jain, Shailaja Sharma
 
 ---
 
@@ -83,7 +83,41 @@
 - **Enhancement Implemented**: Explicit protocol allowlisting at both schema and service layers, plus encoded QR URLs.
 - **Verification Commands & Output**: `npm test` — 13 passed; `npm run build` — TypeScript and Vite build passed.
 
+## 5. Follow-up Bug Audit and Fixes
+
+The second read-only audit found these valid bugs and they were fixed:
+
+1. **QR modal did not open**
+   - Location: `frontend/src/components/ShortenCard.tsx`, QR preview action.
+   - Root cause: the click handler called `setShowQrModal(false)`.
+   - Fix: the handler now sets the modal state to `true`.
+2. **Header links targeted missing sections**
+   - Location: `frontend/src/components/Header.tsx`, About/Analytics/Docs navigation.
+   - Root cause: no matching `about`, `analytics`, or `docs` element IDs exist.
+   - Fix: navigation items are disabled until those pages exist.
+3. **Archived clicks polluted referrer telemetry**
+   - Location: `backend/services/link.service.ts`, `getGlobalStats`.
+   - Root cause: top-referrer aggregation did not filter archived links.
+   - Fix: join `links` and filter `is_deleted = 0`.
+4. **Malformed referrers could break redirect analytics**
+   - Location: `backend/services/link.service.ts`, `recordClick`.
+   - Root cause: `new URL(referrer)` was unguarded.
+   - Fix: invalid referrers now fall back to `direct`.
+5. **Localhost and missing-IP uniqueness was inaccurate**
+   - Location: `backend/services/link.service.ts`, `recordClick`.
+   - Root cause: loopback address formats were treated as different identities, while every missing IP used the same `unknown` identity.
+   - Fix: loopback variants normalize to one `localhost` identity; missing IPs are not counted as unique.
+   - Conversion rate remains `unique clicks / total clicks`; two local clicks from one visitor correctly produce 50%.
+6. **Pagination could remain on an empty final page**
+   - Location: `frontend/src/components/MetricsTable.tsx`, pagination query state.
+   - Root cause: archiving did not move the page back when the total page count decreased.
+   - Fix: an effect moves to the last valid page after refreshed pagination data arrives.
+
+Regression coverage was added for localhost uniqueness, malformed referrers, and archived referrer telemetry.
+
 ---
+
+## 6. Final Pull Request Checklist
 
 ## 5. Final Pull Request Checklist
 - [ ] `npm test` passes 100% (all suites passing)

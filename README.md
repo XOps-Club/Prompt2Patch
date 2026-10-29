@@ -79,6 +79,15 @@ All six incidents were reproduced against the baseline and fixed:
 5. Backend and frontend QR helpers now return an encoded HTTPS QR Server URL for non-empty inputs.
 6. Backend service validation and both request schemas accept only `http:` and `https:` URLs.
 
+Additional verified fixes:
+
+- The QR modal now opens from the QR preview action.
+- Header items without implemented destinations are disabled instead of linking to missing sections.
+- Archived-link clicks are excluded from global referrer telemetry.
+- Malformed referrer headers no longer break redirect analytics.
+- Loopback IPv4/IPv6 addresses are normalized as one local visitor; missing IPs are not counted as unique.
+- The directory returns to the last valid page after archiving its final item.
+
 Verification:
 
 ```bash
