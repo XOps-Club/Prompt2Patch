@@ -16,9 +16,9 @@ export const Header: React.FC = () => {
           </div>
 
           <nav className="nav-links">
-            <a href="#about" className="nav-link-item">About</a>
-            <a href="#analytics" className="nav-link-item">Analytics</a>
-            <a href="#docs" className="nav-link-item">Docs</a>
+            <span className="nav-link-item" aria-disabled="true">About</span>
+            <span className="nav-link-item" aria-disabled="true">Analytics</span>
+            <span className="nav-link-item" aria-disabled="true">Docs</span>
           </nav>
         </div>
 

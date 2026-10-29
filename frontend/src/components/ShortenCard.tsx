@@ -210,7 +210,7 @@ export const ShortenCard: React.FC = () => {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setShowQrModal(false)}
+                  onClick={() => setShowQrModal(true)}
                   style={{ padding: '0.5rem 0.7rem' }}
                   title="View QR Code"
                 >

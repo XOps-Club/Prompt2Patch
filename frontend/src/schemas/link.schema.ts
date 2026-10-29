@@ -4,7 +4,11 @@ export const ShortenInputSchema = z.object({
   originalUrl: z
     .string()
     .min(1, 'Please enter a URL')
-    .url('Please enter a valid URL (must start with http:// or https://)'),
+    .url('Please enter a valid URL (must start with http:// or https://)')
+    .refine((value) => {
+      const protocol = new URL(value).protocol;
+      return protocol === 'http:' || protocol === 'https:';
+    }, 'Please enter a valid URL (must start with http:// or https://)'),
   customSlug: z
     .string()
     .trim()

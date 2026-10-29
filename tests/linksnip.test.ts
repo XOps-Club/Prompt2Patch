@@ -22,6 +22,18 @@ describe('LinkSnip - Standard API Features', () => {
     }, /already in use/);
   });
 
+  it('accepts only http and https target URLs', () => {
+    assert.throws(
+      () => linkService.createLink('javascript:alert(1)'),
+      (err: any) => err.statusCode === 400 && /Only http:\/\/ and https:\/\//.test(err.message)
+    );
+    assert.throws(
+      () => linkService.createLink('file:///etc/passwd'),
+      (err: any) => err.statusCode === 400 && /Only http:\/\/ and https:\/\//.test(err.message)
+    );
+    assert.ok(linkService.createLink('http://example.com/allowed'));
+  });
+
   it('records clicks and updates click count', () => {
     const link = linkService.createLink('https://example.com/click-test');
     linkService.recordClick(link.id, 'https://twitter.com', '127.0.0.1');
@@ -31,6 +43,19 @@ describe('LinkSnip - Standard API Features', () => {
     const updated = linkService.getLinkById(link.id);
     assert.strictEqual(updated?.clicks, 3);
     assert.strictEqual(updated?.unique_clicks, 2);
+  });
+
+  it('normalizes localhost identities and ignores malformed referrers', () => {
+    const link = linkService.createLink('https://example.com/local-click-test');
+    assert.doesNotThrow(() => {
+      linkService.recordClick(link.id, 'not-a-url', '::1');
+      linkService.recordClick(link.id, undefined, '127.0.0.1');
+    });
+
+    const updated = linkService.getLinkById(link.id);
+    assert.strictEqual(updated?.clicks, 2);
+    assert.strictEqual(updated?.unique_clicks, 1);
+    assert.strictEqual(updated?.conversion_rate, 50);
   });
 
   it('calculateConversionRate preserves fractional percentages', () => {
@@ -104,6 +129,18 @@ describe('LinkSnip - Core Link Operations & Analytics', () => {
     } finally {
       server.close();
     }
+  });
+
+  it('excludes archived link clicks from top referrer telemetry', () => {
+    const active = linkService.createLink('https://example.com/active-referrer');
+    const archived = linkService.createLink('https://example.com/archived-referrer');
+    linkService.recordClick(active.id, 'https://active.example');
+    linkService.recordClick(archived.id, 'https://archived.example');
+    linkService.deleteLink(archived.id);
+
+    const stats = linkService.getGlobalStats();
+    assert.ok(stats.topReferrers.some((item) => item.referrer === 'active.example'));
+    assert.ok(!stats.topReferrers.some((item) => item.referrer === 'archived.example'));
   });
 
   it('archives active link on delete', () => {

@@ -68,6 +68,33 @@ Your engineering squad has received production incident reports regarding severa
 6. **INC-06: Strict Target URL Protocol Enforcement**
    - *Symptom*: The service layer must strictly reject unsupported protocols (`javascript:`, `file:`, etc.) and ensure only valid `http://` and `https://` URLs are accepted.
 
+## Incident Resolution
+
+All six incidents were reproduced against the baseline and fixed:
+
+1. `deleteLink` now archives with `is_deleted = 1`, and archived links remain excluded from redirects.
+2. `restoreLink` checks for an active link using the same slug and returns a `409` conflict instead of restoring into a collision.
+3. Active-link stats now return `totalLinks` from the aggregate query, which feeds the dashboard telemetry card.
+4. Pagination totals now use the same active/archived filter as the page data.
+5. Backend and frontend QR helpers now return an encoded HTTPS QR Server URL for non-empty inputs.
+6. Backend service validation and both request schemas accept only `http:` and `https:` URLs.
+
+Additional verified fixes:
+
+- The QR modal now opens from the QR preview action.
+- Header items without implemented destinations are disabled instead of linking to missing sections.
+- Archived-link clicks are excluded from global referrer telemetry.
+- Malformed referrer headers no longer break redirect analytics.
+- Loopback IPv4/IPv6 addresses are normalized as one local visitor; missing IPs are not counted as unique.
+- The directory returns to the last valid page after archiving its final item.
+
+Verification:
+
+```bash
+npm test       # 13 tests passed
+npm run build  # TypeScript and Vite build passed
+```
+
 ---
 
 ## 🎯 Evaluation Criteria

@@ -46,7 +46,7 @@ export const linkService = {
  */
 export function getQrCodeUrl(shortUrl: string): string {
   if (!shortUrl) return '';
-  return '';
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shortUrl)}`;
 }
 
 // TanStack Query Hooks

@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 export const CreateLinkSchema = z.object({
-  originalUrl: z.string().url('Invalid URL format. Please include http:// or https://'),
+  originalUrl: z
+    .string()
+    .url('Invalid URL format. Please include http:// or https://')
+    .refine((value) => {
+      const protocol = new URL(value).protocol;
+      return protocol === 'http:' || protocol === 'https:';
+    }, 'Invalid URL protocol. Only http:// and https:// URLs are supported'),
   customSlug: z
     .string()
     .trim()

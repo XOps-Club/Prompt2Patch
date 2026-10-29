@@ -34,10 +34,24 @@ export function calculateConversionRate(uniqueClicks: number, totalClicks: numbe
  */
 export function getQrCodeUrl(shortUrl: string): string {
   if (!shortUrl) return '';
-  return '';
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shortUrl)}`;
 }
 
 export function createLink(originalUrl: string, customSlug?: string): LinkWithStats {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(originalUrl);
+  } catch {
+    const error: any = new Error('Invalid URL format');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    const error: any = new Error('Invalid URL protocol. Only http:// and https:// URLs are supported');
+    error.statusCode = 400;
+    throw error;
+  }
+
   let slug = customSlug?.trim();
   if (!slug) {
     slug = generateRandomSlug(6);
@@ -70,7 +84,7 @@ export function getLinks(page: number = 1, limit: number = 10, includeDeleted: b
   const offset = Math.max(0, (page - 1) * limit);
 
   const whereClause = includeDeleted ? 'WHERE is_deleted = 1' : 'WHERE is_deleted = 0';
-  const countRow = db.prepare('SELECT COUNT(*) as total FROM links').get() as any;
+  const countRow = db.prepare(`SELECT COUNT(*) as total FROM links ${whereClause}`).get() as any;
   const total = countRow.total;
 
   const rows = db.prepare(`
@@ -134,12 +148,28 @@ export function getLinkByShortCode(shortCode: string): any {
 }
 
 export function recordClick(linkId: number, referrer?: string, ip?: string, userAgent?: string) {
-  const cleanReferrer = referrer ? new URL(referrer).hostname : 'direct';
-  const ipHash = ip ? crypto.createHash('sha256').update(ip).digest('hex').substring(0, 16) : 'unknown';
+  let cleanReferrer = 'direct';
+  if (referrer) {
+    try {
+      cleanReferrer = new URL(referrer).hostname || 'direct';
+    } catch {
+      cleanReferrer = 'direct';
+    }
+  }
+
+  const normalizedIp = ip?.split(',')[0].trim().replace(/^::ffff:/, '');
+  const clientIdentity = normalizedIp === '::1' || normalizedIp === '127.0.0.1'
+    ? 'localhost'
+    : normalizedIp;
+  const ipHash = clientIdentity
+    ? crypto.createHash('sha256').update(clientIdentity).digest('hex').substring(0, 16)
+    : null;
 
   // Check if unique click from this IP
-  const priorClick = db.prepare('SELECT id FROM click_logs WHERE link_id = ? AND ip_hash = ?').get(linkId, ipHash);
-  const isUnique = !priorClick;
+  const priorClick = ipHash
+    ? db.prepare('SELECT id FROM click_logs WHERE link_id = ? AND ip_hash = ?').get(linkId, ipHash)
+    : null;
+  const isUnique = Boolean(ipHash) && !priorClick;
 
   const now = new Date().toISOString();
   db.prepare(`
@@ -158,7 +188,7 @@ export function recordClick(linkId: number, referrer?: string, ip?: string, user
  * Soft-deletes / archives a link by ID
  */
 export function deleteLink(id: number): boolean {
-  const result = db.prepare('UPDATE links SET is_deleted = 0, updated_at = ? WHERE id = ?').run(
+  const result = db.prepare('UPDATE links SET is_deleted = 1, updated_at = ? WHERE id = ? AND is_deleted = 0').run(
     new Date().toISOString(),
     id
   );
@@ -176,7 +206,16 @@ export function restoreLink(id: number): LinkWithStats {
     throw err;
   }
 
-  db.prepare('UPDATE links SET is_deleted = 1, updated_at = ? WHERE id = ?').run(
+  const conflictingLink = db
+    .prepare('SELECT id FROM links WHERE short_code = ? AND is_deleted = 0 AND id != ?')
+    .get(link.short_code, id);
+  if (conflictingLink) {
+    const err: any = new Error(`Slug '${link.short_code}' is already in use`);
+    err.statusCode = 409;
+    throw err;
+  }
+
+  db.prepare('UPDATE links SET is_deleted = 0, updated_at = ? WHERE id = ? AND is_deleted = 1').run(
     new Date().toISOString(),
     id
   );
@@ -200,6 +239,8 @@ export function getGlobalStats() {
   const topReferrers = db.prepare(`
     SELECT referrer, COUNT(*) as count
     FROM click_logs
+    INNER JOIN links ON links.id = click_logs.link_id
+    WHERE links.is_deleted = 0
     GROUP BY referrer
     ORDER BY count DESC
     LIMIT 5
@@ -211,7 +252,7 @@ export function getGlobalStats() {
   );
 
   return {
-    totalLinks: (linksSummary as any).activeLinks,
+    totalLinks: linksSummary.totalLinks,
     totalClicks: linksSummary.totalClicks,
     totalUniqueClicks: linksSummary.totalUniqueClicks,
     averageConversionRate: avgConversion,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLinks, useDeleteLink, useRestoreLink } from '../services/linkService.js';
 import { Copy, Check, ExternalLink, Archive, RotateCcw, ChevronLeft, ChevronRight, Search, Globe, Compass, Terminal } from 'lucide-react';
 
@@ -9,9 +9,15 @@ export const MetricsTable: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const isArchived = activeTab === 'archived';
-  const { data, isLoading, isError, error } = useLinks(page, 10, isArchived);
+  const { data, isLoading, isError, error, isFetching } = useLinks(page, 10, isArchived);
   const deleteMutation = useDeleteLink();
   const restoreMutation = useRestoreLink();
+
+  useEffect(() => {
+    if (!isFetching && data?.pagination && page > Math.max(1, data.pagination.totalPages)) {
+      setPage(Math.max(1, data.pagination.totalPages));
+    }
+  }, [data?.pagination, isFetching, page]);
 
   const handleCopy = (id: number, shortCode: string) => {
     const fullUrl = `${window.location.origin}/${shortCode}`;
